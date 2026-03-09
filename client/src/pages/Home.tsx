@@ -2,14 +2,13 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Loader2, Lock, Search, RefreshCw, ExternalLink, ChevronDown, ChevronUp,
   Waves, MapPin, BedDouble, Bath, Eye, Phone, Mail, Building2, User,
   Home as HomeIcon, DollarSign, SlidersHorizontal, Calendar, Star,
-  X, ChevronLeft, ChevronRight, Images, Mountain, TreePalm, Info
+  X, ChevronLeft, ChevronRight, Images, Mountain, Info, Clock,
 } from "lucide-react";
 import { checkPassword, sha256, checkAuth } from "@/lib/auth";
 
@@ -22,7 +21,7 @@ interface Listing {
   agent_name: string | null; agent_brokerage: string | null; agent_phone: string | null;
   agent_email: string | null; listing_url: string | null; drive_folder_url: string | null;
   first_seen_date: string; last_seen_date: string; is_active: boolean; location_area: string;
-  price_at_first_seen: number; photos?: Photo[];
+  price_at_first_seen: number; photos?: Photo[] | null;
 }
 
 // ─── Password Gate ────────────────────────────────────────────────────────────
@@ -59,7 +58,14 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 h-12 text-base" autoFocus />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full pl-10 pr-4 h-12 text-base border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-[#0077B6]/40"
+              autoFocus
+            />
           </div>
           {error && <p className="text-sm text-[#FF6B6B] font-medium">{error}</p>}
           <Button type="submit" className="w-full h-12 text-base bg-[#0077B6] hover:bg-[#005F8A] text-white" disabled={checking}>
@@ -94,6 +100,12 @@ const formatArea = (area: string) =>
 const formatDateShort = (d: string) =>
   new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
+const formatElapsed = (ms: number) => {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, "0")}`;
+};
+
 const OCEAN_VIEW_KEYWORDS = [
   "ocean view", "ocean views", "ocean glimpse", "panoramic ocean",
   "see the ocean", "unobstructed view", "ocean peek", "outer island views",
@@ -121,21 +133,20 @@ function hasAnyView(listing: Listing): boolean {
   return ANY_VIEW_KEYWORDS.some((kw) => text.includes(kw));
 }
 
-// Location parent-child: Kihei and Wailea both include Maui Meadows
+// Location parent-child: Kihei/Wailea both include Maui Meadows
 const LOCATION_CHILDREN: Record<string, string[]> = {
-  kihei: ["maui_meadows"],
-  wailea: ["maui_meadows"],
+  kihei: ["maui_meadows", "kihei_maui_meadows_wailea"],
+  wailea: ["maui_meadows", "kihei_maui_meadows_wailea"],
+  kihei_maui_meadows_wailea: ["maui_meadows"],
 };
 
 function matchesLocation(listing: Listing, filter: string): boolean {
   if (filter === "all") return true;
   const area = (listing.location_area || "").toLowerCase();
   if (area === filter) return true;
-  // Check parent-child: if filter is "kihei", also match "maui_meadows"
   const children = LOCATION_CHILDREN[filter];
-  if (children && children.some((child) => area === child || area.includes(child))) return true;
-  // Partial match for Maui Meadows in address
-  if (filter === "kihei" || filter === "wailea") {
+  if (children && children.some((child) => area === child || area.includes(child.replace(/_/g, " ")))) return true;
+  if (filter === "kihei" || filter === "wailea" || filter === "kihei_maui_meadows_wailea") {
     const addr = (listing.address || "").toLowerCase();
     if (addr.includes("maui meadows")) return true;
   }
@@ -172,7 +183,7 @@ function PhotoLightbox({
         </div>
         <div className="flex items-center gap-3 ml-4 flex-shrink-0">
           <span className="text-sm text-white/70 font-mono">{current + 1} / {total}</span>
-          <button onClick={onClose} className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors" aria-label="Close"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"><X className="w-5 h-5" /></button>
         </div>
       </div>
       <div className="flex-1 flex items-center justify-center relative min-h-0 px-12 sm:px-16">
@@ -203,9 +214,14 @@ function PhotoLightbox({
 }
 
 // ─── Photo Carousel on Card ──────────────────────────────────────────────────
-function CardCarousel({ photos, onOpenLightbox, address }: { photos: Photo[]; onOpenLightbox: (photos: Photo[], index: number, address: string) => void; address: string }) {
+function CardCarousel({ photos, onOpenLightbox, address }: {
+  photos: Photo[];
+  onOpenLightbox: (photos: Photo[], index: number, address: string) => void;
+  address: string;
+}) {
   const [idx, setIdx] = useState(0);
   const total = photos.length;
+
   if (total === 0) return (
     <div className="aspect-[16/10] bg-gradient-to-br from-[#0077B6]/10 to-[#F4E4C1]/30 flex items-center justify-center">
       <HomeIcon className="w-12 h-12 text-muted-foreground/20" />
@@ -220,29 +236,20 @@ function CardCarousel({ photos, onOpenLightbox, address }: { photos: Photo[]; on
         className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
         onClick={() => onOpenLightbox(photos, idx, address)}
         draggable={false}
+        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
       />
-      {/* Source label */}
       <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
         {sourceName(photos[idx].source)}
       </div>
-      {/* Photo count */}
       <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
         <Images className="w-2.5 h-2.5" /> {idx + 1}/{total}
       </div>
-      {/* Arrows */}
       {total > 1 && (
         <>
-          <button
-            onClick={(e) => { e.stopPropagation(); setIdx((i) => (i - 1 + total) % total); }}
-            className="absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
-          ><ChevronLeft className="w-4 h-4" /></button>
-          <button
-            onClick={(e) => { e.stopPropagation(); setIdx((i) => (i + 1) % total); }}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
-          ><ChevronRight className="w-4 h-4" /></button>
+          <button onClick={(e) => { e.stopPropagation(); setIdx((i) => (i - 1 + total) % total); }} className="absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"><ChevronLeft className="w-4 h-4" /></button>
+          <button onClick={(e) => { e.stopPropagation(); setIdx((i) => (i + 1) % total); }} className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"><ChevronRight className="w-4 h-4" /></button>
         </>
       )}
-      {/* Dots */}
       {total > 1 && total <= 8 && (
         <div className="absolute bottom-7 left-1/2 -translate-x-1/2 flex gap-1">
           {photos.map((_, i) => (
@@ -254,39 +261,44 @@ function CardCarousel({ photos, onOpenLightbox, address }: { photos: Photo[]; on
   );
 }
 
-// ─── Listing Card (Realtor.com style) ────────────────────────────────────────
+// ─── Listing Card ─────────────────────────────────────────────────────────────
 function ListingCard({
   listing, today, onOpenLightbox,
 }: { listing: Listing; today: string; onOpenLightbox: (photos: Photo[], index: number, address: string) => void; }) {
   const [, setLocation] = useLocation();
   const isNew = listing.first_seen_date === today;
   const statusLower = listing.status?.toLowerCase() || "";
-  const sc = statusLower === "active" ? "bg-emerald-100 text-emerald-700" : statusLower === "pending" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700";
+  const sc = statusLower === "active" ? "bg-emerald-100 text-emerald-700"
+    : statusLower === "pending" ? "bg-amber-100 text-amber-700"
+    : statusLower === "available" ? "bg-blue-100 text-blue-700"
+    : "bg-gray-100 text-gray-700";
 
-  const photos: Photo[] = listing.photos || [];
+  // Parse photos — handle both JSON string and array (Supabase JSONB)
+  let photos: Photo[] = [];
+  if (listing.photos) {
+    if (Array.isArray(listing.photos)) {
+      photos = listing.photos;
+    } else if (typeof listing.photos === "string") {
+      try { photos = JSON.parse(listing.photos); } catch { photos = []; }
+    }
+  }
+
   const isOcean = hasOceanView(listing);
 
-  // Source buttons
   const sourceButtons: Array<{ label: string; url: string }> = [];
   if (listing.listing_url) sourceButtons.push({ label: `View on ${sourceName(listing.source)}`, url: listing.listing_url });
   if (listing.drive_folder_url) sourceButtons.push({ label: "Photos (Drive)", url: listing.drive_folder_url });
 
-  // Photo source counts
   const photoSourceCounts = useMemo(() => {
     const map = new Map<string, number>();
-    photos.forEach((p) => {
-      const s = sourceName(p.source);
-      map.set(s, (map.get(s) || 0) + 1);
-    });
+    photos.forEach((p) => { const s = sourceName(p.source); map.set(s, (map.get(s) || 0) + 1); });
     return Array.from(map.entries());
   }, [photos]);
 
   return (
-    <Card className="overflow-hidden border border-border/60 hover:shadow-lg transition-shadow duration-300 group bg-white">
-      {/* Photo Carousel */}
+    <Card className="overflow-hidden border border-border/60 hover:shadow-lg transition-shadow duration-300 bg-white">
       <div className="relative">
         <CardCarousel photos={photos} onOpenLightbox={onOpenLightbox} address={listing.address} />
-        {/* Badges overlay */}
         <div className="absolute top-2 left-2 flex flex-wrap gap-1.5">
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${sc}`}>
             {listing.status ? listing.status.charAt(0).toUpperCase() + listing.status.slice(1) : "Unknown"}
@@ -300,38 +312,23 @@ function ListingCard({
         </div>
       </div>
 
-      {/* Card body — clickable to detail page */}
-      <div
-        className="p-3 sm:p-4 cursor-pointer"
-        onClick={() => setLocation(`/listing/${listing.id}`)}
-      >
-        {/* Price */}
+      <div className="p-3 sm:p-4 cursor-pointer" onClick={() => setLocation(`/listing/${listing.id}`)}>
         <p className="text-lg sm:text-xl font-extrabold text-[#0077B6] leading-tight">
           {formatPrice(listing.price, listing.listing_type)}
         </p>
-
-        {/* Bed/Bath/Sqft */}
         <div className="flex items-center gap-3 mt-1 text-xs sm:text-sm text-muted-foreground">
           <span className="flex items-center gap-1"><BedDouble className="w-3.5 h-3.5" /> {listing.bedrooms}</span>
           <span className="flex items-center gap-1"><Bath className="w-3.5 h-3.5" /> {listing.bathrooms}</span>
           {listing.sqft && <span>{listing.sqft.toLocaleString()} sqft</span>}
         </div>
-
-        {/* Address */}
         <p className="text-sm font-medium mt-1.5 truncate flex items-center gap-1">
           <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
           {listing.address}
         </p>
-
-        {/* Location area */}
         <p className="text-xs text-muted-foreground mt-0.5">{formatArea(listing.location_area)}</p>
-
-        {/* Description snippet */}
         {listing.description && (
           <p className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{listing.description}</p>
         )}
-
-        {/* Agent */}
         {listing.agent_name && (
           <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
             <User className="w-3 h-3 flex-shrink-0" />
@@ -341,25 +338,16 @@ function ListingCard({
         )}
       </div>
 
-      {/* Photo source sub-buttons */}
       {photoSourceCounts.length > 0 && (
         <div className="px-3 sm:px-4 pb-2 flex flex-wrap gap-1.5">
           {photoSourceCounts.map(([src, count]) => (
-            <button
-              key={src}
-              onClick={() => {
-                const srcPhotos = photos.filter((p) => sourceName(p.source) === src);
-                onOpenLightbox(srcPhotos, 0, listing.address);
-              }}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted/60 hover:bg-muted text-[10px] text-muted-foreground font-medium transition-colors"
-            >
+            <button key={src} onClick={() => { const srcPhotos = photos.filter((p) => sourceName(p.source) === src); onOpenLightbox(srcPhotos, 0, listing.address); }} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted/60 hover:bg-muted text-[10px] text-muted-foreground font-medium transition-colors">
               <Images className="w-2.5 h-2.5" /> {src} ({count})
             </button>
           ))}
         </div>
       )}
 
-      {/* Source buttons */}
       <div className="px-3 sm:px-4 pb-3 flex flex-wrap gap-1.5">
         {sourceButtons.map((btn, i) => (
           <a key={i} href={btn.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
@@ -373,6 +361,47 @@ function ListingCard({
   );
 }
 
+// ─── Refresh Button with Timer ────────────────────────────────────────────────
+const REFRESH_KEY = "maui_refresh_log";
+const REFRESH_COMPLETE_KEY = "maui_refresh_complete";
+const MAX_REFRESHES_PER_DAY = 3;
+const MIN_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+
+function useRefreshTimer(refreshing: boolean) {
+  const [elapsed, setElapsed] = useState(0);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const startRef = useRef<number | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (refreshing) {
+      startRef.current = Date.now();
+      setElapsed(0);
+      intervalRef.current = setInterval(() => {
+        setElapsed(Date.now() - (startRef.current || Date.now()));
+      }, 1000);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [refreshing]);
+
+  // Countdown to next available refresh
+  useEffect(() => {
+    const tick = () => {
+      const completeTime = parseInt(localStorage.getItem(REFRESH_COMPLETE_KEY) || "0");
+      if (!completeTime) { setCountdown(null); return; }
+      const remaining = completeTime + MIN_INTERVAL_MS - Date.now();
+      setCountdown(remaining > 0 ? remaining : null);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [refreshing]);
+
+  return { elapsed, countdown };
+}
+
 // ─── Main Dashboard ──────────────────────────────────────────────────────────
 export default function Home() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -383,6 +412,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
   const [sortBy, setSortBy] = useState("price_asc");
   const [filterLocation, setFilterLocation] = useState("all");
   const [filterBeds, setFilterBeds] = useState("0");
@@ -392,67 +422,81 @@ export default function Home() {
   const [lightbox, setLightbox] = useState<{ photos: Photo[]; index: number; address: string } | null>(null);
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const { elapsed, countdown } = useRefreshTimer(refreshing);
 
   // Auth check
   useEffect(() => {
     checkAuth().then((ok) => { setAuthenticated(ok); setAuthChecked(true); });
   }, []);
 
-  // Load search runs
+  const loadSearchRuns = useCallback(async () => {
+    const r = await fetch("/api/search-runs");
+    const data = await r.json();
+    setSearchRuns(data);
+    return data;
+  }, []);
+
+  // Load search runs on auth
   useEffect(() => {
     if (!authenticated) return;
-    fetch("/api/search-runs").then((r) => r.json()).then((data) => {
-      setSearchRuns(data);
+    loadSearchRuns().then((data) => {
       if (data.length > 0) {
         const todayRun = data.find((r: SearchRun) => r.run_date === today);
         setSelectedDate(todayRun ? todayRun.run_date : data[0].run_date);
       }
     }).catch(console.error);
-  }, [authenticated, today]);
+  }, [authenticated, today, loadSearchRuns]);
 
-  // Load listings for selected date
+  // Load listings when selected date changes
   useEffect(() => {
     if (!selectedDate || !authenticated) return;
     setLoading(true);
-    fetch(`/api/listings?date=${selectedDate}`).then((r) => r.json()).then((data) => {
-      setListings(data);
-      setLoading(false);
-    }).catch((e) => { console.error(e); setLoading(false); });
+    fetch(`/api/listings?date=${selectedDate}`)
+      .then((r) => r.json())
+      .then((data) => { setListings(data); setLoading(false); })
+      .catch((e) => { console.error(e); setLoading(false); });
   }, [selectedDate, authenticated]);
 
   // Refresh handler
   const handleRefresh = async () => {
-    const REFRESH_KEY = "maui_refresh_log";
     const now = Date.now();
     const log: number[] = JSON.parse(localStorage.getItem(REFRESH_KEY) || "[]");
     const todayLog = log.filter((t) => now - t < 86400000);
-    if (todayLog.length >= 3) {
-      const nextAvail = new Date(todayLog[0] + 86400000);
-      setRefreshError(`Limit reached (3/day). Next refresh available at ${nextAvail.toLocaleTimeString()}.`);
+
+    if (todayLog.length >= MAX_REFRESHES_PER_DAY) {
+      const nextAvail = new Date(Math.min(...todayLog) + 86400000);
+      setRefreshError(`Limit reached (3/day). Resets at ${nextAvail.toLocaleTimeString()}.`);
       return;
     }
-    if (todayLog.length > 0 && now - todayLog[todayLog.length - 1] < 1800000) {
-      const nextAvail = new Date(todayLog[todayLog.length - 1] + 1800000);
+    const lastRefresh = todayLog.length > 0 ? todayLog[todayLog.length - 1] : 0;
+    if (now - lastRefresh < MIN_INTERVAL_MS) {
+      const nextAvail = new Date(lastRefresh + MIN_INTERVAL_MS);
       setRefreshError(`Please wait 30 minutes between refreshes. Next: ${nextAvail.toLocaleTimeString()}.`);
       return;
     }
+
     setRefreshError("");
     setRefreshing(true);
     try {
       const r = await fetch("/api/search", { method: "POST" });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Search failed");
+
+      const completeTime = Date.now();
       todayLog.push(now);
       localStorage.setItem(REFRESH_KEY, JSON.stringify(todayLog));
-      // Reload
-      const runsR = await fetch("/api/search-runs");
-      const runs = await runsR.json();
-      setSearchRuns(runs);
-      setSelectedDate(today);
-      const listR = await fetch(`/api/listings?date=${today}`);
+      localStorage.setItem(REFRESH_COMPLETE_KEY, String(completeTime));
+      setLastRefreshTime(new Date(completeTime));
+
+      // Reload runs and listings
+      const runs = await loadSearchRuns();
+      const todayRun = runs.find((r: SearchRun) => r.run_date === today);
+      const newDate = todayRun ? todayRun.run_date : runs[0]?.run_date || today;
+      setSelectedDate(newDate);
+      const listR = await fetch(`/api/listings?date=${newDate}`);
       setListings(await listR.json());
     } catch (e: any) {
-      setRefreshError(e.message || "Search failed");
+      setRefreshError(e.message || "Search failed. Please try again.");
     }
     setRefreshing(false);
   };
@@ -467,18 +511,13 @@ export default function Home() {
   // Filtered + sorted listings
   const filteredListings = useMemo(() => {
     let result = listings.filter((l) => l.is_active);
-    // Location filter with parent-child
     if (filterLocation !== "all") result = result.filter((l) => matchesLocation(l, filterLocation));
-    // Beds
     const minBeds = parseInt(filterBeds);
     if (minBeds > 0) result = result.filter((l) => l.bedrooms >= minBeds);
-    // Baths
     const minBaths = parseInt(filterBaths);
     if (minBaths > 0) result = result.filter((l) => l.bathrooms >= minBaths);
-    // View filter
     if (viewFilter === "ocean") result = result.filter(hasOceanView);
     else if (viewFilter === "any") result = result.filter(hasAnyView);
-    // Sort
     result.sort((a, b) => sortBy === "price_asc" ? a.price - b.price : b.price - a.price);
     return result;
   }, [listings, filterLocation, filterBeds, filterBaths, viewFilter, sortBy]);
@@ -516,23 +555,51 @@ export default function Home() {
                 <div className="min-w-0">
                   <h1 className="text-base sm:text-xl font-bold leading-tight truncate">Maui Property Search</h1>
                   <p className="text-xs text-muted-foreground hidden sm:block">
-                    {selectedDate ? `Results for ${formatDateShort(selectedDate)}` : "All of Maui Island"}
+                    {selectedDate ? `Results for ${formatDateShort(selectedDate)}` : "All of Maui County"}
                     {listings.length > 0 && ` · ${listings.filter((l) => l.is_active).length} active`}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Button onClick={handleRefresh} disabled={refreshing} className="bg-[#0077B6] hover:bg-[#005F8A] text-white gap-1.5 text-xs sm:text-sm" size="sm">
-                  {refreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                  <span className="hidden sm:inline">Refresh Listings</span>
-                  <span className="sm:hidden">Refresh</span>
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                <Button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="bg-[#0077B6] hover:bg-[#005F8A] text-white gap-1.5 text-xs sm:text-sm min-w-[130px]"
+                  size="sm"
+                >
+                  {refreshing ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span className="font-mono">Refreshing... {formatElapsed(elapsed)}</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Refresh Listings</span>
+                    </>
+                  )}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => { localStorage.removeItem("maui_auth"); setAuthenticated(false); }} className="text-muted-foreground" title="Lock">
-                  <Lock className="w-4 h-4" />
+                {/* Timer info below button */}
+                {!refreshing && lastRefreshTime && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Last refreshed {lastRefreshTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {countdown !== null && ` · Next in ${formatElapsed(countdown)}`}
+                  </p>
+                )}
+                {!refreshing && !lastRefreshTime && countdown !== null && (
+                  <p className="text-[10px] text-muted-foreground">Next refresh in {formatElapsed(countdown)}</p>
+                )}
+              </div>
+            </div>
+            {/* Lock button row */}
+            <div className="flex items-center justify-between mt-1">
+              {refreshError && <p className="text-xs sm:text-sm text-[#FF6B6B] font-medium">{refreshError}</p>}
+              <div className="ml-auto">
+                <Button variant="ghost" size="sm" onClick={() => { localStorage.removeItem("maui_auth"); setAuthenticated(false); }} className="text-muted-foreground h-7 px-2" title="Lock dashboard">
+                  <Lock className="w-3.5 h-3.5" />
                 </Button>
               </div>
             </div>
-            {refreshError && <p className="text-xs sm:text-sm text-[#FF6B6B] mt-2 font-medium">{refreshError}</p>}
           </div>
         </header>
 
@@ -546,12 +613,12 @@ export default function Home() {
                 <div className="grid sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
                   <div className="space-y-0.5">
                     <p className="font-medium text-[#0077B6] flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" /> For Sale</p>
-                    <p className="text-muted-foreground">All of Maui Island (Maui Meadows preferred)</p>
+                    <p className="text-muted-foreground">All of Maui County (Maui Meadows preferred)</p>
                     <p className="text-muted-foreground">Max $1.1M · 1+ bed, 1+ bath</p>
                   </div>
                   <div className="space-y-0.5">
                     <p className="font-medium text-[#FF6B6B] flex items-center gap-1.5"><HomeIcon className="w-3.5 h-3.5" /> For Rent</p>
-                    <p className="text-muted-foreground">All of Maui Island (Maui Meadows preferred)</p>
+                    <p className="text-muted-foreground">All of Maui County (Maui Meadows preferred)</p>
                     <p className="text-muted-foreground">Max $6,000/mo · 1+ bed, 1+ bath</p>
                   </div>
                 </div>
@@ -567,21 +634,25 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Calendar Date Strip */}
+          {/* Calendar Date Strip — deduplicated by date */}
           {searchRuns.length > 0 && (
             <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
               {searchRuns.map((run) => (
                 <button
-                  key={run.id}
+                  key={run.run_date}
                   onClick={() => setSelectedDate(run.run_date)}
                   className={`flex-shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
-                    selectedDate === run.run_date ? "bg-[#0077B6] text-white shadow-md" : "bg-white text-foreground border border-border hover:border-[#0077B6]/30"
+                    selectedDate === run.run_date
+                      ? "bg-[#0077B6] text-white shadow-md"
+                      : "bg-white text-foreground border border-border hover:border-[#0077B6]/30"
                   }`}
                 >
                   <span className="flex items-center gap-1 sm:gap-1.5">
                     <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     {formatDateShort(run.run_date)}
-                    <span className={`text-xs ${selectedDate === run.run_date ? "text-white/80" : "text-muted-foreground"}`}>· {run.listing_count}</span>
+                    <span className={`text-xs ${selectedDate === run.run_date ? "text-white/80" : "text-muted-foreground"}`}>
+                      · {run.listing_count}
+                    </span>
                   </span>
                 </button>
               ))}
@@ -599,7 +670,7 @@ export default function Home() {
               }`}
             >
               <Waves className="w-5 h-5 sm:w-6 sm:h-6" />
-              Ocean View
+              🌊 Ocean View
             </button>
             <button
               onClick={() => setViewFilter(viewFilter === "any" ? "none" : "any")}
@@ -610,7 +681,7 @@ export default function Home() {
               }`}
             >
               <Mountain className="w-5 h-5 sm:w-6 sm:h-6" />
-              Any View
+              🏔️ Any View
             </button>
           </div>
 
@@ -630,13 +701,13 @@ export default function Home() {
               </Select>
 
               <Select value={filterLocation} onValueChange={setFilterLocation}>
-                <SelectTrigger className="w-[140px] sm:w-[170px] h-9 text-xs sm:text-sm bg-white"><SelectValue placeholder="Location" /></SelectTrigger>
+                <SelectTrigger className="w-[150px] sm:w-[190px] h-9 text-xs sm:text-sm bg-white"><SelectValue placeholder="Location" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Maui</SelectItem>
+                  <SelectItem value="all">All Maui County</SelectItem>
                   {locationAreas.map((area) => (
                     <SelectItem key={area} value={area}>
                       {formatArea(area)}
-                      {(area === "kihei" || area === "wailea") ? " (incl. Maui Meadows)" : ""}
+                      {(area === "kihei" || area === "wailea" || area === "kihei_maui_meadows_wailea") ? " (incl. Maui Meadows)" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -687,6 +758,7 @@ export default function Home() {
                   <Card className="p-10 sm:p-12 text-center">
                     <Search className="w-9 h-9 sm:w-10 sm:h-10 text-muted-foreground/40 mx-auto mb-3" />
                     <p className="text-muted-foreground text-sm">No listings found for this date and filters.</p>
+                    <p className="text-muted-foreground text-xs mt-1">Try clicking "Refresh Listings" to fetch the latest from Realtor.com.</p>
                   </Card>
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -700,6 +772,7 @@ export default function Home() {
                   <Card className="p-10 sm:p-12 text-center">
                     <Search className="w-9 h-9 sm:w-10 sm:h-10 text-muted-foreground/40 mx-auto mb-3" />
                     <p className="text-muted-foreground text-sm">No listings found for this date and filters.</p>
+                    <p className="text-muted-foreground text-xs mt-1">Try clicking "Refresh Listings" to fetch the latest from Realtor.com.</p>
                   </Card>
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -730,7 +803,7 @@ export default function Home() {
 
         <footer className="border-t border-border/50 py-5 mt-8">
           <div className="container text-center text-xs text-muted-foreground">
-            Maui Property Search · All of Maui Island · Data sourced live from real estate platforms
+            Maui Property Search · All of Maui County · Data sourced live from Realtor.com via realtor16 API
           </div>
         </footer>
       </div>

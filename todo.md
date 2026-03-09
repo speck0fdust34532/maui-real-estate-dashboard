@@ -38,6 +38,12 @@
 - [x] Store ALL photos per listing, ALL fields, no artificial limits
 - [x] Upsert logic to avoid duplicates but capture all new listings
 - [x] Rate limiting delays (2.5s between pages, 1.5s between locations)
+- [x] Fix: Replace realtor-search with realtor16 API (all 17 Maui County zip codes)
+- [x] Fix: Add photos JSONB column to Supabase listings table
+- [x] Fix: Calendar date dedup (one pill per unique date, combined counts)
+- [x] Fix: No images showing on listing cards
+- [x] Add refresh progress timer with elapsed time and countdown
+- [ ] Trigger live search after deploy
 - [ ] Detail view with all sources labeled (future)
 - [ ] Image storage with source URL metadata (future)
 - [ ] Entrance animations for listing cards (future)
