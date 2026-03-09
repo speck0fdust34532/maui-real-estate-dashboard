@@ -419,6 +419,7 @@ export default function Home() {
   const [filterBaths, setFilterBaths] = useState("0");
   const [viewFilter, setViewFilter] = useState<"all" | "ocean" | "any">("all");
   const [showInactive, setShowInactive] = useState(false);
+  const [showSources, setShowSources] = useState(false);
   const [lightbox, setLightbox] = useState<{ photos: Photo[]; index: number; address: string } | null>(null);
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
@@ -752,6 +753,50 @@ export default function Home() {
               </Select>
             </div>
           </Card>
+
+          {/* Browse Original Data Sources */}
+          <div className="border border-border/60 rounded-xl overflow-hidden bg-white">
+            <button
+              onClick={() => setShowSources(!showSources)}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold hover:bg-muted/30 transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <ExternalLink className="w-4 h-4 text-[#0077B6]" />
+                Browse Original Data Sources
+              </span>
+              {showSources ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+            </button>
+            {showSources && (
+              <div className="border-t border-border/60 p-4">
+                <p className="text-xs text-muted-foreground mb-3">Click any source to browse Maui listings directly on that platform. Listings found there will appear here after the next refresh.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {[
+                    { name: "Realtor.com", desc: "For sale & for rent listings", url: "https://www.realtor.com/realestateandhomes-search/Maui_HI", color: "#D92228" },
+                    { name: "Zillow", desc: "For sale & Zestimate values", url: "https://www.zillow.com/maui-hi/", color: "#006AFF" },
+                    { name: "Redfin", desc: "Maui County listings & history", url: "https://www.redfin.com/county/2628/HI/Maui-County", color: "#CC0000" },
+                    { name: "Hawaii Life", desc: "Local Hawaii real estate experts", url: "https://www.hawaiilife.com/search/?location=Maui", color: "#2E7D32" },
+                    { name: "Craigslist — For Sale", desc: "Owner & agent Maui listings", url: "https://honolulu.craigslist.org/search/mau/reo", color: "#6B3FA0" },
+                    { name: "Craigslist — Rentals", desc: "Maui apartment & house rentals", url: "https://honolulu.craigslist.org/search/mau/apa", color: "#6B3FA0" },
+                    { name: "Zumper", desc: "Maui rental listings", url: "https://www.zumper.com/apartments-for-rent/maui-hi", color: "#FF5A5F" },
+                  ].map((src) => (
+                    <a
+                      key={src.name}
+                      href={src.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/50 hover:border-[#0077B6]/40 hover:bg-[#0077B6]/5 transition-all group"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate" style={{ color: src.color }}>{src.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{src.desc}</p>
+                      </div>
+                      <span className="text-xs font-medium text-[#0077B6] group-hover:translate-x-0.5 transition-transform flex-shrink-0">Visit →</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Listings */}
           {loading ? (
