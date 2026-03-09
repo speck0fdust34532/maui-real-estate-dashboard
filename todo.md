@@ -1,0 +1,27 @@
+# Maui Dashboard TODO
+
+- [ ] Supabase client setup (server-side)
+- [ ] GET /api/search-runs endpoint
+- [ ] GET /api/listings endpoint
+- [ ] POST /api/search endpoint (RapidAPI integration)
+- [ ] Custom Express routes registered in server
+- [ ] Password gate (SHA-256 hashed, localStorage)
+- [ ] Header with title, date, count
+- [ ] Search criteria card
+- [ ] Calendar date strip
+- [ ] Refresh button with rate limiting
+- [ ] For Sale / For Rent tabs
+- [ ] Listing cards with all details
+- [ ] Filters (sort, location, ocean view)
+- [ ] No Longer Listed section
+- [ ] Hawaii-inspired design/theming
+- [ ] Mobile responsive
+- [ ] Vitest tests
+- [ ] Deploy publicly
+- [ ] No hardcoded fake data — only live Supabase data
+- [ ] No placeholder images — only real source-linked images
+- [ ] Source labels on all listing data
+- [ ] Detail view with all sources labeled
+- [ ] Image storage with source URL metadata (future)
+- [ ] Multi-source buttons per listing (View on [Source] for each platform)
+- [ ] Full photo gallery lightbox with source labels, swipe, counter, ESC close
