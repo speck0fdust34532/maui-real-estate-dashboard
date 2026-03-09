@@ -393,6 +393,7 @@ api.post("/api/search", async (_req, res) => {
     if (runError) throw runError;
 
     // Batch upsert all listings — no artificial limits, 100 per batch
+    let storedCount = 0;
     if (allListings.length > 0) {
       const BATCH_SIZE = 100;
       for (let i = 0; i < allListings.length; i += BATCH_SIZE) {
@@ -421,22 +422,17 @@ api.post("/api/search", async (_req, res) => {
           is_active: true,
           location_area: l.location_area,
           price_at_first_seen: l.price,
+          // NOTE: year_built, lot_size, property_type are NOT in the Supabase schema — omitted intentionally
         }));
 
         const { error: insertError } = await supabase
           .from("listings")
           .insert(rows);
         if (insertError) {
-          console.error(`Batch ${i / BATCH_SIZE + 1} insert error:`, insertError.message, insertError.details);
-          // Retry without photos column if it doesn't exist yet
-          if (insertError.message?.includes('photos') || insertError.code === '42703') {
-            const rowsNoPhotos = rows.map(({ photos: _p, ...rest }) => rest);
-            const { error: retryError } = await supabase.from('listings').insert(rowsNoPhotos);
-            if (retryError) console.error(`Batch ${i / BATCH_SIZE + 1} retry error:`, retryError.message);
-            else console.log(`Batch ${i / BATCH_SIZE + 1} stored ${rowsNoPhotos.length} rows (without photos)`);
-          }
+          console.error(`Batch ${i / BATCH_SIZE + 1} insert error [${insertError.code}]:`, insertError.message, insertError.details, insertError.hint);
         } else {
-          console.log(`Batch ${i / BATCH_SIZE + 1} stored ${rows.length} rows`);
+          console.log(`Batch ${i / BATCH_SIZE + 1} stored ${rows.length} rows successfully`);
+          storedCount += rows.length;
         }
       }
     }
