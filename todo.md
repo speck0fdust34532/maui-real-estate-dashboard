@@ -1,27 +1,29 @@
 # Maui Dashboard TODO
 
-- [ ] Supabase client setup (server-side)
-- [ ] GET /api/search-runs endpoint
-- [ ] GET /api/listings endpoint
-- [ ] POST /api/search endpoint (RapidAPI integration)
-- [ ] Custom Express routes registered in server
-- [ ] Password gate (SHA-256 hashed, localStorage)
-- [ ] Header with title, date, count
-- [ ] Search criteria card
-- [ ] Calendar date strip
-- [ ] Refresh button with rate limiting
-- [ ] For Sale / For Rent tabs
-- [ ] Listing cards with all details
-- [ ] Filters (sort, location, ocean view)
-- [ ] No Longer Listed section
-- [ ] Hawaii-inspired design/theming
-- [ ] Mobile responsive
-- [ ] Vitest tests
-- [ ] Deploy publicly
-- [ ] No hardcoded fake data — only live Supabase data
-- [ ] No placeholder images — only real source-linked images
-- [ ] Source labels on all listing data
-- [ ] Detail view with all sources labeled
+- [x] Supabase backend routes (search-runs, listings, search)
+- [x] Password gate with SHA-256 (plaintext never in bundle)
+- [x] Header with title, date, listing count
+- [x] Search criteria card
+- [x] Calendar date strip with listing counts
+- [x] Refresh button (max 3/day, 30-min cooldown)
+- [x] For Sale / For Rent tabs
+- [x] Listing cards (address, price, bed/bath, status badge, ocean view badge, NEW badge)
+- [x] Agent info (name, brokerage, phone, email)
+- [x] No Longer Listed section (collapsed, last 14 days)
+- [x] Hawaii theme (ocean blues, sand, coral)
+- [x] Mobile responsive layout
+- [x] No hardcoded fake data — only live Supabase data
+- [x] No placeholder images — only real source-linked images
+- [x] Source labels on all listing data
+- [x] Multi-source buttons per listing (View on [Source] for each platform)
+- [x] Full photo gallery lightbox with source labels, swipe, counter, ESC close
+- [x] Expand search to all of Maui island (Maui Meadows preferred)
+- [x] Change beds_min from 2 to 1 everywhere
+- [x] Fix TypeScript errors (CORRECT_PASSWORD removed)
+- [x] Mobile polish — cards, filters, calendar, lightbox all smooth on mobile
+- [x] Bed/bath count filter selectors (Any, 1+, 2+, 3+, 4+ for beds; Any, 1+, 2+, 3+ for baths)
+- [x] Dynamic location filter (populated from actual loaded listings)
+- [x] Vitest tests (20 tests passing)
+- [ ] Detail view with all sources labeled (future)
 - [ ] Image storage with source URL metadata (future)
-- [ ] Multi-source buttons per listing (View on [Source] for each platform)
-- [ ] Full photo gallery lightbox with source labels, swipe, counter, ESC close
+- [ ] Entrance animations for listing cards (future)

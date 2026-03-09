@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Loader2, Lock, Waves } from "lucide-react";
-import { sha256, CORRECT_PASSWORD } from "@/lib/auth";
+import { checkPassword, sha256 } from "@/lib/auth";
 
 export default function PasswordGate({ onAuth }: { onAuth: () => void }) {
   const [password, setPassword] = useState("");
@@ -14,9 +14,9 @@ export default function PasswordGate({ onAuth }: { onAuth: () => void }) {
     e.preventDefault();
     setChecking(true);
     setError("");
-    const hash = await sha256(password);
-    const correctHash = await sha256(CORRECT_PASSWORD);
-    if (hash === correctHash) {
+    const ok = await checkPassword(password);
+    if (ok) {
+      const hash = await sha256(password);
       localStorage.setItem("maui_auth", hash);
       onAuth();
     } else {
