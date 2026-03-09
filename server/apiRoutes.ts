@@ -427,7 +427,16 @@ api.post("/api/search", async (_req, res) => {
           .from("listings")
           .insert(rows);
         if (insertError) {
-          console.error(`Batch ${i / BATCH_SIZE + 1} insert error:`, insertError.message);
+          console.error(`Batch ${i / BATCH_SIZE + 1} insert error:`, insertError.message, insertError.details);
+          // Retry without photos column if it doesn't exist yet
+          if (insertError.message?.includes('photos') || insertError.code === '42703') {
+            const rowsNoPhotos = rows.map(({ photos: _p, ...rest }) => rest);
+            const { error: retryError } = await supabase.from('listings').insert(rowsNoPhotos);
+            if (retryError) console.error(`Batch ${i / BATCH_SIZE + 1} retry error:`, retryError.message);
+            else console.log(`Batch ${i / BATCH_SIZE + 1} stored ${rowsNoPhotos.length} rows (without photos)`);
+          }
+        } else {
+          console.log(`Batch ${i / BATCH_SIZE + 1} stored ${rows.length} rows`);
         }
       }
     }

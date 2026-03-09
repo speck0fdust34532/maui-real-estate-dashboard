@@ -417,7 +417,7 @@ export default function Home() {
   const [filterLocation, setFilterLocation] = useState("all");
   const [filterBeds, setFilterBeds] = useState("0");
   const [filterBaths, setFilterBaths] = useState("0");
-  const [viewFilter, setViewFilter] = useState<"none" | "ocean" | "any">("none");
+  const [viewFilter, setViewFilter] = useState<"all" | "ocean" | "any">("all");
   const [showInactive, setShowInactive] = useState(false);
   const [lightbox, setLightbox] = useState<{ photos: Photo[]; index: number; address: string } | null>(null);
 
@@ -518,6 +518,7 @@ export default function Home() {
     if (minBaths > 0) result = result.filter((l) => l.bathrooms >= minBaths);
     if (viewFilter === "ocean") result = result.filter(hasOceanView);
     else if (viewFilter === "any") result = result.filter(hasAnyView);
+    // "all" = no view filter
     result.sort((a, b) => sortBy === "price_asc" ? a.price - b.price : b.price - a.price);
     return result;
   }, [listings, filterLocation, filterBeds, filterBaths, viewFilter, sortBy]);
@@ -659,10 +660,20 @@ export default function Home() {
             </div>
           )}
 
-          {/* View Toggle Buttons — prominent */}
+          {/* View Toggle Buttons — 3-button group, All is default */}
           <div className="flex flex-col sm:flex-row gap-3">
             <button
-              onClick={() => setViewFilter(viewFilter === "ocean" ? "none" : "ocean")}
+              onClick={() => setViewFilter("all")}
+              className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-2xl text-sm sm:text-base font-bold transition-all border-2 ${
+                viewFilter === "all"
+                  ? "bg-gray-700 text-white border-gray-700 shadow-lg shadow-gray-700/20"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-gray-400 hover:bg-gray-50"
+              }`}
+            >
+              🏠 All Listings
+            </button>
+            <button
+              onClick={() => setViewFilter("ocean")}
               className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-2xl text-sm sm:text-base font-bold transition-all border-2 ${
                 viewFilter === "ocean"
                   ? "bg-[#0077B6] text-white border-[#0077B6] shadow-lg shadow-[#0077B6]/30"
@@ -673,7 +684,7 @@ export default function Home() {
               🌊 Ocean View
             </button>
             <button
-              onClick={() => setViewFilter(viewFilter === "any" ? "none" : "any")}
+              onClick={() => setViewFilter("any")}
               className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-2xl text-sm sm:text-base font-bold transition-all border-2 ${
                 viewFilter === "any"
                   ? "bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-600/30"

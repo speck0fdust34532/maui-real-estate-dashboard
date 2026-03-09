@@ -43,7 +43,9 @@
 - [x] Fix: Calendar date dedup (one pill per unique date, combined counts)
 - [x] Fix: No images showing on listing cards
 - [x] Add refresh progress timer with elapsed time and countdown
-- [ ] Trigger live search after deploy
-- [ ] Detail view with all sources labeled (future)
+- [x] Trigger live search after deploy
+- [x] Replace view toggles with 3-button group: All (default) / Ocean View / Any View
+- [x] Full listing detail page (Realtor.com style) — already built
+- [x] Check live search status in Supabase — 311 found, 0 stored (old deployed code); fixed in this deploy
 - [ ] Image storage with source URL metadata (future)
 - [ ] Entrance animations for listing cards (future)
