@@ -580,6 +580,12 @@ export default function Home() {
                     </>
                   )}
                 </Button>
+                {/* Subtitle while refreshing */}
+                {refreshing && (
+                  <p className="text-[10px] text-muted-foreground text-right max-w-[180px] leading-tight">
+                    Full refresh across all data sources takes 10–15 min. Check back in a bit!
+                  </p>
+                )}
                 {/* Timer info below button */}
                 {!refreshing && lastRefreshTime && (
                   <p className="text-[10px] text-muted-foreground">
