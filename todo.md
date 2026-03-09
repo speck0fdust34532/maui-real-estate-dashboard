@@ -24,6 +24,20 @@
 - [x] Bed/bath count filter selectors (Any, 1+, 2+, 3+, 4+ for beds; Any, 1+, 2+, 3+ for baths)
 - [x] Dynamic location filter (populated from actual loaded listings)
 - [x] Vitest tests (20 tests passing)
+- [x] Header blurb about aggregated sources
+- [x] Kihei→Maui Meadows and Wailea→Maui Meadows parent-child filter logic
+- [ ] Trigger live RapidAPI search and store in Supabase
+- [x] Single listing GET /api/listings/:id endpoint for detail page
+- [x] Realtor.com-style listing cards with photo carousel
+- [x] Source photo sub-buttons on cards
+- [x] Full listing detail page (Realtor.com style)
+- [x] Remove ocean view as hard search requirement in backend
+- [x] Add prominent Ocean View / Any View toggle buttons in filters
+- [x] Update search criteria card to reflect no ocean view requirement
+- [x] Comprehensive paginated search — fetch ALL pages, no truncation
+- [x] Store ALL photos per listing, ALL fields, no artificial limits
+- [x] Upsert logic to avoid duplicates but capture all new listings
+- [x] Rate limiting delays (2.5s between pages, 1.5s between locations)
 - [ ] Detail view with all sources labeled (future)
 - [ ] Image storage with source URL metadata (future)
 - [ ] Entrance animations for listing cards (future)
