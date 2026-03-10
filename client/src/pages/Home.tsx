@@ -413,10 +413,12 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
-  const [sortBy, setSortBy] = useState("price_asc");
+  const [sortBy, setSortBy] = useState("price_desc");
   const [filterLocation, setFilterLocation] = useState("all");
   const [filterBeds, setFilterBeds] = useState("0");
   const [filterBaths, setFilterBaths] = useState("0");
+  const [filterMinPrice, setFilterMinPrice] = useState("0");
+  const [filterMaxPrice, setFilterMaxPrice] = useState("0");
   const [viewFilter, setViewFilter] = useState<"all" | "ocean" | "any">("all");
   const [showInactive, setShowInactive] = useState(false);
   const [showSources, setShowSources] = useState(false);
@@ -517,16 +519,30 @@ export default function Home() {
     if (minBeds > 0) result = result.filter((l) => l.bedrooms >= minBeds);
     const minBaths = parseInt(filterBaths);
     if (minBaths > 0) result = result.filter((l) => l.bathrooms >= minBaths);
+    const minPrice = parseInt(filterMinPrice);
+    if (minPrice > 0) result = result.filter((l) => l.price >= minPrice);
+    const maxPrice = parseInt(filterMaxPrice);
+    if (maxPrice > 0) result = result.filter((l) => l.price <= maxPrice);
     if (viewFilter === "ocean") result = result.filter(hasOceanView);
     else if (viewFilter === "any") result = result.filter(hasAnyView);
     // "all" = no view filter
     result.sort((a, b) => sortBy === "price_asc" ? a.price - b.price : b.price - a.price);
     return result;
-  }, [listings, filterLocation, filterBeds, filterBaths, viewFilter, sortBy]);
+  }, [listings, filterLocation, filterBeds, filterBaths, filterMinPrice, filterMaxPrice, viewFilter, sortBy]);
 
   const sale = useMemo(() => filteredListings.filter((l) => l.listing_type === "for_sale"), [filteredListings]);
   const rent = useMemo(() => filteredListings.filter((l) => l.listing_type === "for_rent"), [filteredListings]);
   const inactive = useMemo(() => listings.filter((l) => !l.is_active), [listings]);
+
+  const resetFilters = useCallback(() => {
+    setFilterLocation("all");
+    setFilterBeds("0");
+    setFilterBaths("0");
+    setFilterMinPrice("0");
+    setFilterMaxPrice("0");
+    setViewFilter("all");
+    setSortBy("price_desc");
+  }, []);
 
   const openLightbox = useCallback((photos: Photo[], index: number, address: string) => {
     setLightbox({ photos, index, address });
@@ -751,6 +767,54 @@ export default function Home() {
                   <SelectItem value="3">3+ Baths</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Select value={filterMinPrice} onValueChange={setFilterMinPrice}>
+                <SelectTrigger className="w-[120px] sm:w-[140px] h-9 text-xs sm:text-sm bg-white"><SelectValue placeholder="Min Price" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Any Min</SelectItem>
+                  <SelectItem value="100000">$100k+</SelectItem>
+                  <SelectItem value="200000">$200k+</SelectItem>
+                  <SelectItem value="300000">$300k+</SelectItem>
+                  <SelectItem value="400000">$400k+</SelectItem>
+                  <SelectItem value="500000">$500k+</SelectItem>
+                  <SelectItem value="600000">$600k+</SelectItem>
+                  <SelectItem value="700000">$700k+</SelectItem>
+                  <SelectItem value="800000">$800k+</SelectItem>
+                  <SelectItem value="900000">$900k+</SelectItem>
+                  <SelectItem value="1000000">$1M+</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterMaxPrice} onValueChange={setFilterMaxPrice}>
+                <SelectTrigger className="w-[120px] sm:w-[140px] h-9 text-xs sm:text-sm bg-white"><SelectValue placeholder="Max Price" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Any Max</SelectItem>
+                  <SelectItem value="100000">$100k</SelectItem>
+                  <SelectItem value="200000">$200k</SelectItem>
+                  <SelectItem value="300000">$300k</SelectItem>
+                  <SelectItem value="400000">$400k</SelectItem>
+                  <SelectItem value="500000">$500k</SelectItem>
+                  <SelectItem value="600000">$600k</SelectItem>
+                  <SelectItem value="700000">$700k</SelectItem>
+                  <SelectItem value="800000">$800k</SelectItem>
+                  <SelectItem value="900000">$900k</SelectItem>
+                  <SelectItem value="1000000">$1M</SelectItem>
+                  <SelectItem value="1100000">$1.1M</SelectItem>
+                  <SelectItem value="1200000">$1.2M</SelectItem>
+                  <SelectItem value="1500000">$1.5M</SelectItem>
+                  <SelectItem value="2000000">$2M</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                onClick={resetFilters}
+                variant="outline"
+                size="sm"
+                className="h-9 text-xs sm:text-sm border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
+              >
+                <X className="w-3.5 h-3.5 mr-1" />
+                Clear All
+              </Button>
             </div>
           </Card>
 
