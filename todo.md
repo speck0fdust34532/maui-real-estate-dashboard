@@ -51,3 +51,11 @@
 - [ ] Live search status indicator in UI (shows current zip code, listings found, photos extracted, % complete)
 - [ ] Image storage with source URL metadata (future)
 - [ ] Entrance animations for listing cards (future)
+- [x] Delete ALL test/fake/seeded listings from database
+- [x] Add safeguard to reject test data (example.com URLs, Test/Seed addresses)
+- [x] Switch from Supabase to JSON file storage (bypass RLS permission issues)
+- [x] Price filter: min/max dropdowns with 100k increments
+- [x] "Clear All Filters" button
+- [x] Default sort by highest price first
+- [x] Price threshold: only store properties $1.1M or less (sale) / $6,000 or less (rent)
+- [x] Upgrade photo URLs from thumbnail (4KB) to high-res (276KB) via CDN suffix change (s→od)

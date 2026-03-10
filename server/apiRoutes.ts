@@ -108,16 +108,36 @@ function mapRealtor16Property(
   const photos: Array<{ url: string; source: string }> = [];
   const listingId = prop.listing_id || prop.property_id || "";
 
+  /**
+   * Upgrade photo URL to high-resolution.
+   * CDN suffix controls resolution:
+   *   s  = 4KB thumbnail
+   *   x  = 58KB medium
+   *   o  = 276KB large
+   *   od = 276KB large (same as o)
+   *   rd = 1.2MB full resolution
+   * We use 'od' for a good balance of quality (276KB) vs bandwidth.
+   * Change to 'rd' for maximum resolution (1.2MB per photo).
+   */
+  function upgradeToHighRes(url: string): string {
+    // Replace the size suffix before .jpg/.jpeg/.png/.webp
+    // Pattern: [hash]l-m[id]s.jpg → [hash]l-m[id]od.jpg
+    return url.replace(/(-m\d+)s\.(jpg|jpeg|png|webp)$/i, '$1od.$2');
+  }
+
   // Primary photo first
   if (prop.primary_photo?.href) {
-    photos.push({ url: prop.primary_photo.href, source: "realtor.com" });
+    photos.push({ url: upgradeToHighRes(prop.primary_photo.href), source: "realtor.com" });
   }
   // All photos array — no limit, no truncation
   if (Array.isArray(prop.photos)) {
     for (const p of prop.photos) {
-      const url = p?.href || p?.url || (typeof p === "string" ? p : "");
-      if (url && !photos.some((existing) => existing.url === url)) {
-        photos.push({ url, source: "realtor.com" });
+      const rawUrl = p?.href || p?.url || (typeof p === "string" ? p : "");
+      if (rawUrl) {
+        const url = upgradeToHighRes(rawUrl);
+        if (!photos.some((existing) => existing.url === url)) {
+          photos.push({ url, source: "realtor.com" });
+        }
       }
     }
   }
