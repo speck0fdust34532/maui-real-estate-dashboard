@@ -89,6 +89,15 @@ function mapRealtor16Property(
     return null; // Skip test data with example.com URLs
   }
 
+  // PRICE FILTER: Only store properties within acceptable price ranges
+  const price = prop.list_price || 0;
+  if (listingType === "for_sale" && price > 1100000) {
+    return null; // Skip properties over $1.1M for sale
+  }
+  if (listingType === "for_rent" && price > 6000) {
+    return null; // Skip rentals over $6,000/month
+  }
+
   const descriptionText = prop.remarks || prop.description_text || "";
   const titleText = prop.name || "";
   const combinedText = `${titleText} ${descriptionText}`;
