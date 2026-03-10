@@ -108,3 +108,10 @@ temp/
 
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
+
+# Local data storage
+data/
+*.json.bak
+
+# Manus development logs
+.manus-logs/
