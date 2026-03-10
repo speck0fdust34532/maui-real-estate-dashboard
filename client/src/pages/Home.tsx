@@ -133,6 +133,18 @@ function hasAnyView(listing: Listing): boolean {
   return ANY_VIEW_KEYWORDS.some((kw) => text.includes(kw));
 }
 
+function isApartment(listing: Listing): boolean {
+  const addr = (listing.address || "").toLowerCase();
+  const desc = (listing.description || "").toLowerCase();
+  return addr.includes(" unit ") || addr.includes(" apt ") || desc.includes("apartment");
+}
+
+function isCondo(listing: Listing): boolean {
+  const addr = (listing.address || "").toLowerCase();
+  const desc = (listing.description || "").toLowerCase();
+  return addr.includes("condo") || desc.includes("condo") || desc.includes("condo complex");
+}
+
 // Location parent-child: Kihei/Wailea both include Maui Meadows
 const LOCATION_CHILDREN: Record<string, string[]> = {
   kihei: ["maui_meadows", "kihei_maui_meadows_wailea"],
@@ -420,6 +432,8 @@ export default function Home() {
   const [filterMinPrice, setFilterMinPrice] = useState("0");
   const [filterMaxPrice, setFilterMaxPrice] = useState("0");
   const [viewFilter, setViewFilter] = useState<"all" | "ocean" | "any">("all");
+  const [includeApartments, setIncludeApartments] = useState(false);
+  const [includeCondos, setIncludeCondos] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [lightbox, setLightbox] = useState<{ photos: Photo[]; index: number; address: string } | null>(null);
@@ -526,9 +540,17 @@ export default function Home() {
     if (viewFilter === "ocean") result = result.filter(hasOceanView);
     else if (viewFilter === "any") result = result.filter(hasAnyView);
     // "all" = no view filter
+    
+    // Property type filters: exclude apartments and condos unless explicitly included
+    result = result.filter((l) => {
+      if (isApartment(l) && !includeApartments) return false;
+      if (isCondo(l) && !includeCondos) return false;
+      return true;
+    });
+    
     result.sort((a, b) => sortBy === "price_asc" ? a.price - b.price : b.price - a.price);
     return result;
-  }, [listings, filterLocation, filterBeds, filterBaths, filterMinPrice, filterMaxPrice, viewFilter, sortBy]);
+  }, [listings, filterLocation, filterBeds, filterBaths, filterMinPrice, filterMaxPrice, viewFilter, sortBy, includeApartments, includeCondos]);
 
   const sale = useMemo(() => filteredListings.filter((l) => l.listing_type === "for_sale"), [filteredListings]);
   const rent = useMemo(() => filteredListings.filter((l) => l.listing_type === "for_rent"), [filteredListings]);
@@ -542,6 +564,8 @@ export default function Home() {
     setFilterMaxPrice("0");
     setViewFilter("all");
     setSortBy("price_desc");
+    setIncludeApartments(false);
+    setIncludeCondos(false);
   }, []);
 
   const openLightbox = useCallback((photos: Photo[], index: number, address: string) => {
@@ -814,6 +838,35 @@ export default function Home() {
               >
                 <X className="w-3.5 h-3.5 mr-1" />
                 Clear All
+              </Button>
+            </div>
+            
+            {/* Property Type Toggles */}
+            <div className="flex flex-wrap gap-2 sm:gap-3 items-center mt-3 pt-3 border-t border-border/50">
+              <span className="text-xs sm:text-sm font-medium text-muted-foreground">Property Type:</span>
+              <Button
+                onClick={() => setIncludeApartments(!includeApartments)}
+                variant="outline"
+                size="sm"
+                className={`h-9 text-xs sm:text-sm transition-all ${
+                  includeApartments
+                    ? "bg-blue-100 border-blue-400 text-blue-700 hover:bg-blue-200"
+                    : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                Include Apartments
+              </Button>
+              <Button
+                onClick={() => setIncludeCondos(!includeCondos)}
+                variant="outline"
+                size="sm"
+                className={`h-9 text-xs sm:text-sm transition-all ${
+                  includeCondos
+                    ? "bg-purple-100 border-purple-400 text-purple-700 hover:bg-purple-200"
+                    : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                Include Condos
               </Button>
             </div>
           </Card>

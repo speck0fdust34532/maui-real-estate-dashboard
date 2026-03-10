@@ -59,3 +59,5 @@
 - [x] Default sort by highest price first
 - [x] Price threshold: only store properties $1.1M or less (sale) / $6,000 or less (rent)
 - [x] Upgrade photo URLs from thumbnail (4KB) to high-res (276KB) via CDN suffix change (s→od)
+- [x] Fix broken ocean view and any view filter logic (root cause: no ocean view data from API)
+- [x] Complete property type filters: add toggle buttons for apartments and condos (both OFF by default)
