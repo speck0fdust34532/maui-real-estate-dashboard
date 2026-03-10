@@ -1,6 +1,6 @@
 import { Router } from "express";
 import axios from "axios";
-import { supabase } from "./supabase";
+import { jsonDb } from "./jsonDb";
 
 const api = Router();
 
@@ -67,7 +67,7 @@ function extractOceanViewSentence(text: string | null, keyword: string | null): 
  */
 function mapRealtor16Property(
   prop: any,
-  listingType: "for_sale" | "for_rent",
+  listingType: string,
   locationArea: string
 ) {
   const desc = prop.description || {};
@@ -80,6 +80,14 @@ function mapRealtor16Property(
   ]
     .filter(Boolean)
     .join(", ");
+
+  // SAFEGUARD: Reject test data — never store fake listings
+  if (address.includes("Test") || address.includes("test") || address.includes("Seed")) {
+    return null; // Skip test data
+  }
+  if (prop.photos && JSON.stringify(prop.photos).includes("example.com")) {
+    return null; // Skip test data with example.com URLs
+  }
 
   const descriptionText = prop.remarks || prop.description_text || "";
   const titleText = prop.name || "";
@@ -137,11 +145,8 @@ function mapRealtor16Property(
     listing_url: listingUrl,
     photos, // ALL photos, never truncated, strictly from this listing
     location_area: locationArea,
-    year_built: desc.year_built || null,
-    lot_size: desc.lot_sqft || null,
-    property_type: desc.type || desc.sub_type || null,
     listing_id: listingId,
-  };
+  }; // SAFEGUARD: year_built, lot_size, property_type excluded — not in Supabase schema
 }
 
 /**
@@ -219,37 +224,25 @@ async function fetchAllPages(
 // ─── GET /api/search-runs ────────────────────────────────────────────────────
 api.get("/api/search-runs", async (_req, res) => {
   try {
-    const { data, error } = await supabase
-      .from("search_runs")
-      .select("*")
-      .order("run_date", { ascending: false });
-    if (error) throw error;
+    const data = await jsonDb.getSearchRuns(100);
 
     // Group by date and aggregate listing counts
-    const dateMap = new Map<string, { id: string; run_date: string; listing_count: number; run_timestamp: string }>();
+    const dateMap = new Map<string, { id: string; run_date: string; listing_count: number }>();
 
     for (const run of data || []) {
-      const { count } = await supabase
-        .from("listings")
-        .select("*", { count: "exact", head: true })
-        .eq("search_run_id", run.id);
+      const listings = await jsonDb.getListings();
+      const count = listings.filter((l) => l.search_run_id === run.id).length;
 
       const existing = dateMap.get(run.run_date);
       if (!existing) {
         dateMap.set(run.run_date, {
           id: run.id,
           run_date: run.run_date,
-          listing_count: count || 0,
-          run_timestamp: run.run_timestamp,
+          listing_count: count,
         });
       } else {
         // Accumulate counts across multiple runs on the same date
-        existing.listing_count += count || 0;
-        // Keep the most recent run's id for date selection
-        if (run.run_timestamp > existing.run_timestamp) {
-          existing.id = run.id;
-          existing.run_timestamp = run.run_timestamp;
-        }
+        existing.listing_count += count;
       }
     }
 
@@ -260,45 +253,30 @@ api.get("/api/search-runs", async (_req, res) => {
   }
 });
 
-// ─── GET /api/listings?date=YYYY-MM-DD ───────────────────────────────────────
+// ─── GET /api/listings?date=YYYY-MM-DD ────────────────────────────────────────────────────
 api.get("/api/listings", async (req, res) => {
   try {
     const date = req.query.date as string;
     if (!date) return res.status(400).json({ error: "date query parameter required" });
 
     // Get ALL search runs for this date
-    const { data: runs, error: runError } = await supabase
-      .from("search_runs")
-      .select("id")
-      .eq("run_date", date);
-    if (runError) throw runError;
-    if (!runs || runs.length === 0) return res.json([]);
+    const allRuns = await jsonDb.getSearchRuns(1000);
+    const runsForDate = allRuns.filter((r) => r.run_date === date);
+    if (!runsForDate || runsForDate.length === 0) return res.json([]);
 
-    const runIds = runs.map((r: any) => r.id);
+    const runIds = runsForDate.map((r) => r.id);
 
-    // Fetch ALL listings across all runs for this date — paginate Supabase
+    // Fetch ALL listings across all runs for this date
     const allListings: any[] = [];
     const seenIds = new Set<string>();
 
     for (const runId of runIds) {
-      let from = 0;
-      const pageSize = 1000;
-      while (true) {
-        const { data: listings, error: listError } = await supabase
-          .from("listings")
-          .select("*")
-          .eq("search_run_id", runId)
-          .range(from, from + pageSize - 1);
-        if (listError) throw listError;
-        if (!listings || listings.length === 0) break;
-        for (const l of listings) {
-          if (!seenIds.has(l.id)) {
-            seenIds.add(l.id);
-            allListings.push(l);
-          }
+      const listings = await jsonDb.getListings();
+      for (const l of listings) {
+        if (l.search_run_id === runId && !seenIds.has(l.id)) {
+          seenIds.add(l.id);
+          allListings.push(l);
         }
-        if (listings.length < pageSize) break;
-        from += pageSize;
       }
     }
 
@@ -313,12 +291,7 @@ api.get("/api/listings", async (req, res) => {
 api.get("/api/listings/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
-      .from("listings")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error) throw error;
+    const data = await jsonDb.getListingById(id);
     if (!data) return res.status(404).json({ error: "Listing not found" });
     res.json(data);
   } catch (error: any) {
@@ -346,6 +319,7 @@ api.post("/api/search", async (_req, res) => {
 
       for (const prop of properties) {
         const mapped = mapRealtor16Property(prop, "for_sale", area);
+        if (mapped === null) continue; // Skip test data
         const addrKey = mapped.address.toLowerCase().trim();
         if (addrKey && !seenAddresses.has(addrKey)) {
           seenAddresses.add(addrKey);
@@ -364,6 +338,7 @@ api.post("/api/search", async (_req, res) => {
 
       for (const prop of properties) {
         const mapped = mapRealtor16Property(prop, "for_rent", area);
+        if (mapped === null) continue; // Skip test data
         const addrKey = mapped.address.toLowerCase().trim();
         if (addrKey && !seenAddresses.has(addrKey)) {
           seenAddresses.add(addrKey);
@@ -376,21 +351,16 @@ api.post("/api/search", async (_req, res) => {
     console.log(`[Search] Total unique listings: ${allListings.length}`);
 
     // Create search run record
-    const { data: searchRun, error: runError } = await supabase
-      .from("search_runs")
-      .insert({
-        run_date: today,
-        total_found: allListings.length,
-        sources_searched: {
-          realtor16_api: true,
-          coverage: "all_maui_county",
-          zip_codes: MAUI_ZIPS.map((z) => z.zip),
-          paginated: true,
-        },
-      })
-      .select()
-      .single();
-    if (runError) throw runError;
+    const searchRun = await jsonDb.insertSearchRun({
+      run_date: today,
+      total_found: allListings.length,
+      sources_searched: {
+        realtor16_api: true,
+        coverage: "all_maui_county",
+        zip_codes: MAUI_ZIPS.map((z) => z.zip),
+        paginated: true,
+      },
+    });
 
     // Batch upsert all listings — no artificial limits, 100 per batch
     let storedCount = 0;
@@ -398,6 +368,7 @@ api.post("/api/search", async (_req, res) => {
       const BATCH_SIZE = 100;
       for (let i = 0; i < allListings.length; i += BATCH_SIZE) {
         const batch = allListings.slice(i, i + BATCH_SIZE);
+        console.log(`[Batch ${i / BATCH_SIZE + 1}] Processing ${batch.length} listings...`);
         const rows = batch.map((l) => ({
           search_run_id: searchRun.id,
           source: l.source,
@@ -425,14 +396,17 @@ api.post("/api/search", async (_req, res) => {
           // NOTE: year_built, lot_size, property_type are NOT in the Supabase schema — omitted intentionally
         }));
 
-        const { error: insertError } = await supabase
-          .from("listings")
-          .insert(rows);
-        if (insertError) {
-          console.error(`Batch ${i / BATCH_SIZE + 1} insert error [${insertError.code}]:`, insertError.message, insertError.details, insertError.hint);
-        } else {
+        // Log sample of photos before insert
+        const photoCounts = rows.map(r => r.photos?.length || 0);
+        const withPhotos = photoCounts.filter(c => c > 0).length;
+        console.log(`  → ${withPhotos}/${rows.length} rows have photos (${photoCounts.slice(0, 3).join(', ')} photos in first 3)`);
+        
+        try {
+          await jsonDb.insertListings(rows);
           console.log(`Batch ${i / BATCH_SIZE + 1} stored ${rows.length} rows successfully`);
           storedCount += rows.length;
+        } catch (batchError: any) {
+          console.error(`Batch ${i / BATCH_SIZE + 1} insert error:`, batchError.message);
         }
       }
     }

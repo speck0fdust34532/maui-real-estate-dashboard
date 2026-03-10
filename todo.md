@@ -48,5 +48,6 @@
 - [x] Full listing detail page (Realtor.com style) — already built
 - [x] Check live search status in Supabase — 311 found, 0 stored (old deployed code); fixed in this deploy
 - [x] CRITICAL: Fix insert bug — root cause: lot_size/year_built/property_type fields not in Supabase schema caused PGRST204, rejecting entire batch. Fixed by removing those fields from insert row.
+- [ ] Live search status indicator in UI (shows current zip code, listings found, photos extracted, % complete)
 - [ ] Image storage with source URL metadata (future)
 - [ ] Entrance animations for listing cards (future)
